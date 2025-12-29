@@ -186,7 +186,7 @@ def download_wikipedia(target: str):
 
     # Wikipedia requires a User-Agent header
     headers = {
-        'User-Agent': 'any-photo-of-the-day/1.0 (https://github.com/yourusername/any-photo-of-the-day)'
+        'User-Agent': 'any-potd/1.0 (https://github.com/artkpv/any-potd)'
     }
 
     response = retry_request(url, headers=headers)

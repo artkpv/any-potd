@@ -16,8 +16,8 @@ Download "photo of the day" from various sources via command line.
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/any-photo-of-the-day.git
-cd any-photo-of-the-day
+git clone https://github.com/artkpv/any-potd.git
+cd any-potd
 
 # Create virtual environment and install
 uv venv

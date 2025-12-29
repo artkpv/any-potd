@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "artkpv"}
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -31,4 +31,4 @@ dependencies = [
 any_potd = "any_potd:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/any-photo-of-the-day"
+Homepage = "https://github.com/artkpv/any-potd"
