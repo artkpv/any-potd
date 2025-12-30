@@ -9,6 +9,7 @@ Download "photo of the day" from various sources via command line.
 - **Retry Logic**: Automatic retry on network failures
 - **Verbose Mode**: Detailed logging with `--verbose` flag
 - **Auto Format Detection**: Automatically detects and uses correct image format
+- **Bash Script**: Script to set your desktop wallpaper at Linux (./set_potd.sh)
 
 ## Installation
 
@@ -23,6 +24,8 @@ cd any-potd
 uv venv
 uv pip install -e .
 ```
+
+Then you can use the script, set_potd.sh
 
 ### Using pip (after publishing)
 
