@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(uv venv:*)"
+      "Bash(uv venv:*)",
+      "WebSearch",
+      "WebFetch(domain:pexels.com)"
     ]
   }
 }

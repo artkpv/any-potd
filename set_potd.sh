@@ -5,6 +5,7 @@ mkdir -p ~/Downloads/pictures
 
 # Get source from argument, default to bing
 SOURCE="${1:-bing}"
+QUERY="${2:-}"
 TARGET="$HOME/Downloads/pictures/${SOURCE}-potd.jpg"
 
 # Prepare python command
@@ -17,13 +18,29 @@ if [ "$SOURCE" == "unsplash" ]; then
         exit 1
     fi
     CMD="$CMD --unsplash-api-key $UNSPLASH_API_KEY"
+    if [ -n "$QUERY" ]; then
+        CMD="$CMD --query \"$QUERY\""
+    fi
 fi
 
-# Run the command
-$CMD "$SOURCE" "$TARGET"
+# Use NASA API key from environment variable if source is nasa
+if [ "$SOURCE" == "nasa" ]; then
+    if [ -n "$NASA_API_KEY" ]; then
+        CMD="$CMD --api-key $NASA_API_KEY"
+    fi
+fi
 
-# Check if download was successful
-if [ -f "$TARGET" ]; then
+# Use Flickr API key from environment variable if source is flickr
+if [ "$SOURCE" == "flickr" ]; then
+    if [ -z "$FLICKR_API_KEY" ]; then
+        notify-send "Wallpaper Error" "FLICKR_API_KEY environment variable is not set"
+        exit 1
+    fi
+    CMD="$CMD --flickr-api-key $FLICKR_API_KEY"
+fi
+
+# Run the command and check exit code
+if eval $CMD '"$SOURCE"' '"$TARGET"'; then
     # Resize the image to 1920x1080 (fill) without distortion using magick
     magick "$TARGET" -resize 1920x1080^ -gravity center -extent 1920x1080 "$TARGET"
 

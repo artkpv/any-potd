@@ -5,8 +5,10 @@ any-photo-of-the-day: Download photo of the day from various sources
 Supported sources:
 - bing: Bing Photo of the Day
 - nasa: NASA Astronomy Picture of the Day (APOD)
-- natgeo: National Geographic Photo of the Day
+- earthobs: NASA Earth Observatory Image of the Day
+- wikipedia: Wikipedia/Wikimedia Commons Picture of the Day
 - unsplash: Unsplash random photos (with optional topics)
+- flickr: Flickr Explore (interesting photos)
 """
 
 import argparse
@@ -154,17 +156,22 @@ def download_nasa(target: str, api_key: str = "DEMO_KEY"):
     """Download NASA Astronomy Picture of the Day"""
     log_verbose("Fetching NASA APOD")
 
-    url = f"https://api.nasa.gov/planetary/apod?api_key={api_key}"
-    data = retry_request(url).json()
+    # Request with thumbs=True so videos return a thumbnail image
+    url = "https://api.nasa.gov/planetary/apod"
+    params = {'api_key': api_key, 'thumbs': 'true'}
+    data = retry_request(url, params=params).json()
 
-    # Check if it's an image (not a video)
-    if data.get('media_type') != 'image':
-        raise Exception(f"Today's APOD is not an image, it's a {data.get('media_type')}")
-
-    # Prefer HD URL, fallback to regular URL
-    img_url = data.get('hdurl') or data.get('url')
-    if not img_url:
-        raise Exception("No image URL found in NASA APOD response")
+    if data.get('media_type') == 'video':
+        # Use thumbnail when today's APOD is a video
+        img_url = data.get('thumbnail_url')
+        if not img_url:
+            raise Exception("Today's APOD is a video and no thumbnail is available")
+        log_verbose("Today's APOD is a video — using thumbnail image")
+    else:
+        # Prefer HD URL, fallback to regular URL
+        img_url = data.get('hdurl') or data.get('url')
+        if not img_url:
+            raise Exception("No image URL found in NASA APOD response")
 
     title = data.get('title', 'Unknown')
     date = data.get('date', 'Unknown')
@@ -172,6 +179,58 @@ def download_nasa(target: str, api_key: str = "DEMO_KEY"):
     log_verbose(f"Date: {date}")
 
     download_and_save(img_url, target)
+
+
+def download_earth_observatory(target: str):
+    """Download NASA Earth Observatory Image of the Day (satellite/earth imagery)"""
+    import html
+    import re
+    import xml.etree.ElementTree as ET
+
+    log_verbose("Fetching NASA Earth Observatory Image of the Day")
+
+    url = "https://science.nasa.gov/feed/earth-observatory/image-of-the-day"
+    headers = {'User-Agent': 'any-potd/1.0 (https://github.com/artkpv/any-potd)'}
+    response = retry_request(url, headers=headers)
+
+    root = ET.fromstring(response.text)
+    ns = {
+        'media': 'http://search.yahoo.com/mrss/',
+        'content': 'http://purl.org/rss/1.0/modules/content/',
+    }
+
+    channel = root.find('channel')
+    if channel is None:
+        raise Exception("Invalid RSS feed from Earth Observatory")
+
+    item = channel.find('item')
+    if item is None:
+        raise Exception("No items found in Earth Observatory RSS feed")
+
+    title = item.findtext('title', 'Unknown')
+    log_verbose(f"Title: {title}")
+
+    img_url = None
+
+    # Try media:content first, then enclosure, then content:encoded
+    media_content = item.find('media:content', ns)
+    if media_content is not None:
+        img_url = media_content.get('url')
+    else:
+        enclosure = item.find('enclosure')
+        if enclosure is not None:
+            img_url = enclosure.get('url')
+        else:
+            content_encoded = item.find('content:encoded', ns)
+            if content_encoded is not None and content_encoded.text:
+                matches = re.findall(r'src="(https://[^"]+\.(?:jpg|jpeg|png))', content_encoded.text)
+                if matches:
+                    img_url = html.unescape(matches[0])
+
+    if not img_url:
+        raise Exception("No image URL found in Earth Observatory RSS")
+
+    download_and_save(img_url, target, headers=headers)
 
 
 def download_wikipedia(target: str):
@@ -255,6 +314,50 @@ def download_unsplash(target: str, api_key: str, topic: Optional[str] = None, qu
     download_and_save(img_url, target)
 
 
+def download_flickr(target: str, api_key: str):
+    """Download a photo from Flickr Explore (daily interesting photos)"""
+    log_verbose("Fetching Flickr Explore photo")
+
+    if not api_key:
+        raise Exception("Flickr API key is required. Get one at https://www.flickr.com/services/api/")
+
+    url = "https://api.flickr.com/services/rest/"
+    params = {
+        'method': 'flickr.interestingness.getList',
+        'api_key': api_key,
+        'format': 'json',
+        'nojsoncallback': '1',
+        'extras': 'url_o,url_h,url_l,title',
+        'per_page': '1',
+    }
+
+    response = retry_request(url, params=params)
+    data = response.json()
+
+    if data.get('stat') != 'ok':
+        raise Exception(f"Flickr API error: {data.get('message', 'Unknown error')}")
+
+    photos = data.get('photos', {}).get('photo', [])
+    if not photos:
+        raise Exception("No photos found in Flickr Explore response")
+
+    photo = photos[0]
+    title = photo.get('title', 'Unknown')
+    log_verbose(f"Title: {title}")
+
+    # Try sizes in order of preference: original, huge (h), large (l)
+    img_url = photo.get('url_o') or photo.get('url_h') or photo.get('url_l')
+    if not img_url:
+        # Construct URL from photo fields (size b = large 1024px)
+        farm = photo.get('farm')
+        server = photo.get('server')
+        photo_id = photo.get('id')
+        secret = photo.get('secret')
+        img_url = f"https://farm{farm}.staticflickr.com/{server}/{photo_id}_{secret}_b.jpg"
+
+    download_and_save(img_url, target)
+
+
 def main():
     """Main CLI entry point"""
     global VERBOSE
@@ -264,23 +367,27 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Supported sources:
-  bing        Bing Photo of the Day
-  nasa        NASA Astronomy Picture of the Day (APOD)
-  wikipedia   Wikipedia/Wikimedia Commons Picture of the Day
-  unsplash    Unsplash random photos
+  bing        Bing Photo of the Day (no key needed)
+  nasa        NASA Astronomy Picture of the Day (optional API key)
+  earthobs    NASA Earth Observatory Image of the Day (no key needed)
+  wikipedia   Wikipedia/Wikimedia Commons Picture of the Day (no key needed)
+  unsplash    Unsplash random photos (API key required)
+  flickr      Flickr Explore interesting photos (API key required)
 
 Examples:
   any_potd bing wallpaper.jpg
   any_potd nasa apod.jpg --api-key YOUR_NASA_KEY
+  any_potd earthobs earth.jpg --verbose
   any_potd wikipedia wiki-potd.jpg --verbose
   any_potd unsplash nature.jpg --unsplash-api-key YOUR_KEY --topic nature
   any_potd unsplash mountain.jpg --unsplash-api-key YOUR_KEY --query "mountain sunset"
+  any_potd flickr explore.jpg --flickr-api-key YOUR_KEY
         """
     )
 
     parser.add_argument(
         'source',
-        choices=['bing', 'nasa', 'wikipedia', 'unsplash'],
+        choices=['bing', 'nasa', 'earthobs', 'wikipedia', 'unsplash', 'flickr'],
         help='Photo source'
     )
 
@@ -291,13 +398,20 @@ Examples:
 
     parser.add_argument(
         '--api-key',
-        default='DEMO_KEY',
-        help='NASA API key (default: DEMO_KEY with 30 req/hour limit)'
+        default=os.environ.get('NASA_API_KEY', 'DEMO_KEY'),
+        help='NASA API key (default: NASA_API_KEY env var or DEMO_KEY with 30 req/hour limit)'
     )
 
     parser.add_argument(
         '--unsplash-api-key',
+        default=os.environ.get('UNSPLASH_API_KEY'),
         help='Unsplash API key (required for unsplash source). Get one at https://unsplash.com/developers'
+    )
+
+    parser.add_argument(
+        '--flickr-api-key',
+        default=os.environ.get('FLICKR_API_KEY'),
+        help='Flickr API key (required for flickr source). Get one at https://www.flickr.com/services/api/'
     )
 
     parser.add_argument(
@@ -326,6 +440,8 @@ Examples:
             download_bing(args.target)
         elif args.source == 'nasa':
             download_nasa(args.target, args.api_key)
+        elif args.source == 'earthobs':
+            download_earth_observatory(args.target)
         elif args.source == 'wikipedia':
             download_wikipedia(args.target)
         elif args.source == 'unsplash':
@@ -334,6 +450,12 @@ Examples:
                 print("Get a free API key at: https://unsplash.com/developers", file=sys.stderr)
                 sys.exit(1)
             download_unsplash(args.target, args.unsplash_api_key, args.topic, args.query)
+        elif args.source == 'flickr':
+            if not args.flickr_api_key:
+                print("Error: --flickr-api-key is required for Flickr source", file=sys.stderr)
+                print("Get a free API key at: https://www.flickr.com/services/api/", file=sys.stderr)
+                sys.exit(1)
+            download_flickr(args.target, args.flickr_api_key)
     except KeyboardInterrupt:
         print("\nCancelled by user")
         sys.exit(1)
