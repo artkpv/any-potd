@@ -306,7 +306,9 @@ def download_met_museum(target: str):
 
 
 def download_pexels(target: str, api_key: str):
-    """Download the latest curated photo from Pexels"""
+    """Download a random photo from the Pexels curated collection"""
+    import random
+
     log_verbose("Fetching Pexels curated photo")
 
     if not api_key:
@@ -314,7 +316,8 @@ def download_pexels(target: str, api_key: str):
 
     url = "https://api.pexels.com/v1/curated"
     headers = {'Authorization': api_key}
-    params = {'per_page': 1}
+    # Fetch a page of 80 from a random window of the curated collection
+    params = {'per_page': 80, 'page': random.randint(1, 20)}
 
     data = retry_request(url, headers=headers, params=params).json()
 
@@ -322,7 +325,8 @@ def download_pexels(target: str, api_key: str):
     if not photos:
         raise Exception("No photos found in Pexels curated feed")
 
-    photo = photos[0]
+    photo = random.choice(photos)
+
     title = photo.get('alt', 'Unknown')
     photographer = photo.get('photographer', 'Unknown')
     log_verbose(f"Title: {title}")
