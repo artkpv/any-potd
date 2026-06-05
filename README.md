@@ -4,38 +4,25 @@ Download "photo of the day" from various sources via command line.
 
 ## Features
 
-- **Multiple Sources**: Bing, NASA APOD, Wikipedia, Unsplash
+- **Multiple Sources**: Bing, NASA APOD, NASA EPIC, NASA Earth Observatory, Wikipedia, Met Museum, Unsplash, Flickr, Pexels
 - **Simple CLI**: Easy-to-use command-line interface
 - **Retry Logic**: Automatic retry on network failures
 - **Verbose Mode**: Detailed logging with `--verbose` flag
 - **Auto Format Detection**: Automatically detects and uses correct image format
-- **Bash Script**: Script to set your desktop wallpaper at Linux (./set_potd.sh)
+- **Bash Script**: `set_potd.sh` — downloads and sets your Linux desktop wallpaper
 
 ## Installation
 
 ### From Source
 
 ```bash
-# Clone the repository
 git clone https://github.com/artkpv/any-potd.git
 cd any-potd
-
-# Create virtual environment and install
 uv venv
 uv pip install -e .
 ```
 
-Then you can use the script, set_potd.sh
-
-### Using pip (after publishing)
-
-```bash
-pip install any-photo-of-the-day
-```
-
 ## Usage
-
-### Basic Syntax
 
 ```bash
 any_potd <source> <target> [options]
@@ -47,182 +34,120 @@ any_potd <source> <target> [options]
 |--------|-------------|--------------|
 | `bing` | Bing Photo of the Day | None |
 | `nasa` | NASA Astronomy Picture of the Day (APOD) | Optional API key |
+| `earthobs` | NASA Earth Observatory Image of the Day | None |
+| `epic` | NASA EPIC — full-disk Earth from 1 million miles (DSCOVR satellite) | None |
 | `wikipedia` | Wikipedia/Wikimedia Commons Picture of the Day | None |
-| `unsplash` | Unsplash random photos with topics | API key required |
+| `met` | Metropolitan Museum of Art — random public-domain highlight | None |
+| `unsplash` | Unsplash random photos (with optional topic/query) | API key required |
+| `flickr` | Flickr Explore interesting photos | API key required |
+| `pexels` | Pexels curated photos | API key required |
 
 ### Examples
 
-#### Bing Photo of the Day
-
 ```bash
+# No-key sources
 python any_potd.py bing wallpaper.jpg
-python any_potd.py bing wallpaper.jpg --verbose
-```
+python any_potd.py earthobs earth.jpg --verbose
+python any_potd.py epic epic.jpg --verbose
+python any_potd.py wikipedia wiki.jpg --verbose
+python any_potd.py met art.jpg --verbose
 
-#### NASA APOD
-
-```bash
-# Using default DEMO_KEY (30 requests/hour limit)
+# NASA APOD (optional key, DEMO_KEY works for light use)
 python any_potd.py nasa apod.jpg
+python any_potd.py nasa apod.jpg --api-key YOUR_NASA_KEY
 
-# Using your own API key
-python any_potd.py nasa apod.jpg --api-key YOUR_NASA_API_KEY --verbose
-```
-
-**Get a NASA API key**: https://api.nasa.gov/
-
-#### Wikipedia/Wikimedia Commons Picture of the Day
-
-```bash
-# Today's featured picture from Wikipedia/Wikimedia Commons
-python any_potd.py wikipedia wiki-potd.jpg
-
-# With verbose output showing title, artist, and description
-python any_potd.py wikipedia wiki-potd.jpg --verbose
-```
-
-**Note**: Wikipedia provides very high-resolution images (often 5000+ pixels) with artist attribution and detailed descriptions.
-
-#### Unsplash Random Photos
-
-```bash
-# Random photo with landscape orientation
+# Unsplash
 python any_potd.py unsplash photo.jpg --unsplash-api-key YOUR_KEY
-
-# Random photo from specific topic
 python any_potd.py unsplash nature.jpg --unsplash-api-key YOUR_KEY --topic nature
-python any_potd.py unsplash architecture.jpg --unsplash-api-key YOUR_KEY --topic architecture
-python any_potd.py unsplash travel.jpg --unsplash-api-key YOUR_KEY --topic travel
-
-# Search with query
 python any_potd.py unsplash mountain.jpg --unsplash-api-key YOUR_KEY --query "mountain sunset"
+
+# Flickr
+python any_potd.py flickr explore.jpg --flickr-api-key YOUR_KEY
+
+# Pexels
+python any_potd.py pexels curated.jpg --pexels-api-key YOUR_KEY
 ```
 
-**Get an Unsplash API key**: https://unsplash.com/developers
-
-**Popular Unsplash Topics**: nature, architecture, travel, food, fashion, technology, animals, people, experimental
-
-### Command-Line Options
+### Options
 
 ```
 positional arguments:
-  source                Photo source: bing, nasa, unsplash
-  target                Target file path to save the image
+  source                Photo source (see table above)
+  target                Target file path
 
 optional arguments:
   -h, --help            Show this help message and exit
-  --api-key API_KEY     NASA API key (default: DEMO_KEY)
-  --unsplash-api-key KEY
-                        Unsplash API key (required for unsplash source)
-  --topic TOPIC         Unsplash photo topic/category
+  --api-key KEY         NASA API key (default: DEMO_KEY)
+  --unsplash-api-key KEY  Unsplash API key
+  --flickr-api-key KEY  Flickr API key
+  --pexels-api-key KEY  Pexels API key
+  --topic TOPIC         Unsplash topic/category
   --query QUERY         Unsplash search query
   --verbose, -v         Enable verbose output
 ```
 
+### Environment Variables
+
+API keys can be set via environment variables instead of flags:
+
+| Variable | Source |
+|----------|--------|
+| `NASA_API_KEY` | `nasa` |
+| `UNSPLASH_API_KEY` | `unsplash` |
+| `FLICKR_API_KEY` | `flickr` |
+| `PEXELS_API_KEY` | `pexels` |
+
 ## API Keys
 
-### NASA API Key
+| Source | Free Tier | Link |
+|--------|-----------|------|
+| NASA | `DEMO_KEY` built-in (30 req/hr); own key = 5,000 req/hr | https://api.nasa.gov/ |
+| Unsplash | 50 req/hr demo, 5,000 req/hr production | https://unsplash.com/developers |
+| Flickr | Free with account | https://www.flickr.com/services/api/ |
+| Pexels | Free with account | https://www.pexels.com/api/ |
 
-NASA provides a free `DEMO_KEY` with the following limits:
-- 30 requests per hour
-- 50 requests per day
+## Desktop Wallpaper (Linux)
 
-For higher limits, get a free API key at https://api.nasa.gov/ (5,000 requests/hour).
-
-### Unsplash API Key
-
-Unsplash requires an API key for all requests:
-1. Create a free account at https://unsplash.com/developers
-2. Register a new application
-3. Use your Application ID as the API key
-
-**Limits**:
-- Demo mode: 50 requests/hour
-- Production mode: 5,000 requests/hour (requires application approval)
-
-## Examples in Scripts
-
-### Daily Wallpaper Script
+`set_potd.sh` downloads an image, resizes it to 1920×1080, and sets it as wallpaper via `feh`:
 
 ```bash
-#!/bin/bash
-# Download Bing photo of the day as wallpaper
-any_potd bing ~/Pictures/wallpaper.jpg && \
-gsettings set org.gnome.desktop.background picture-uri "file:///$HOME/Pictures/wallpaper.jpg"
-```
-
-### Weekly NASA APOD Collection
-
-```bash
-#!/bin/bash
-# Download NASA APOD to dated file
-DATE=$(date +%Y-%m-%d)
-any_potd nasa ~/Pictures/nasa-apod-$DATE.jpg --api-key YOUR_KEY --verbose
-```
-
-## Troubleshooting
-
-### Network Errors
-
-The tool automatically retries failed requests up to 3 times with exponential backoff. Use `--verbose` to see detailed error information.
-
-### API Rate Limits
-
-If you hit rate limits:
-- **NASA**: Get your own API key or wait an hour
-- **Unsplash**: Register your application or wait an hour
-
-### Image Format
-
-The tool automatically detects image format from the source. If the target filename has no extension or an incorrect one, it will be corrected automatically.
-
-## Development
-
-### Running Tests
-
-```bash
-# Test each source
-python any_potd.py bing test_bing.jpg --verbose
-python any_potd.py nasa test_nasa.jpg --verbose
-python any_potd.py unsplash test_unsplash.jpg --unsplash-api-key YOUR_KEY --verbose
-```
-
-### Project Structure
-
-```
-any-photo-of-the-day/
-├── any_potd.py          # Main script
-├── pyproject.toml       # Package configuration
-├── README.md            # Documentation
-└── .gitignore           # Git ignore rules
+./set_potd.sh bing
+./set_potd.sh epic
+./set_potd.sh met
+./set_potd.sh pexels   # requires PEXELS_API_KEY env var
 ```
 
 ## Dependencies
 
 - Python 3.8+
-- requests >= 2.31.0
+- `requests >= 2.31.0`
 
 ## License
 
 MIT License
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
 ## Credits
 
-- [Bing](https://www.bing.com) for their daily photo service
-- [NASA](https://apod.nasa.gov/) for the Astronomy Picture of the Day
-- [Wikipedia](https://en.wikipedia.org/) and [Wikimedia Commons](https://commons.wikimedia.org/) for their Picture of the Day
-- [Unsplash](https://unsplash.com) for their extensive photo library
+- [Bing](https://www.bing.com) — daily photo
+- [NASA APOD](https://apod.nasa.gov/) — Astronomy Picture of the Day
+- [NASA Earth Observatory](https://earthobservatory.nasa.gov/) — satellite Earth imagery
+- [NASA EPIC](https://epic.gsfc.nasa.gov/) — full-disk Earth photos from DSCOVR
+- [Wikipedia](https://en.wikipedia.org/) / [Wikimedia Commons](https://commons.wikimedia.org/) — Picture of the Day
+- [The Metropolitan Museum of Art](https://www.metmuseum.org/hubs/open-access) — open-access collection
+- [Unsplash](https://unsplash.com) — curated stock photography
+- [Flickr](https://www.flickr.com) — Explore interesting photos
+- [Pexels](https://www.pexels.com) — curated stock photography
 - Inspired by [photo-of-the-day](https://github.com/berkerol/photo-of-the-day) by berkerol
 
 ## Changelog
 
+### v1.1.0
+- Added `epic` source: NASA EPIC full-disk Earth imagery (no key needed)
+- Added `met` source: Metropolitan Museum of Art random highlights (no key needed)
+- Added `pexels` source: Pexels curated photos
+- Added `earthobs` source: NASA Earth Observatory Image of the Day
+- Added `flickr` source: Flickr Explore
+- Fixed Earth Observatory RSS feed URL (migrated to science.nasa.gov)
+
 ### v1.0.0
-- Initial release
-- Support for Bing, NASA, Wikipedia, and Unsplash
-- Automatic retry logic
-- Verbose mode
-- Auto format detection
+- Initial release: Bing, NASA APOD, Wikipedia, Unsplash

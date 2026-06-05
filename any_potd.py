@@ -6,9 +6,12 @@ Supported sources:
 - bing: Bing Photo of the Day
 - nasa: NASA Astronomy Picture of the Day (APOD)
 - earthobs: NASA Earth Observatory Image of the Day
+- epic: NASA EPIC — full-disk Earth from 1M miles (DSCOVR satellite)
 - wikipedia: Wikipedia/Wikimedia Commons Picture of the Day
+- met: Metropolitan Museum of Art — random public-domain highlight
 - unsplash: Unsplash random photos (with optional topics)
 - flickr: Flickr Explore (interesting photos)
+- pexels: Pexels curated photos
 """
 
 import argparse
@@ -233,6 +236,106 @@ def download_earth_observatory(target: str):
     download_and_save(img_url, target, headers=headers)
 
 
+def download_nasa_epic(target: str):
+    """Download NASA EPIC full-disk Earth image (DSCOVR satellite, no key required)"""
+    log_verbose("Fetching NASA EPIC Earth imagery")
+
+    url = "https://epic.gsfc.nasa.gov/api/natural"
+    headers = {'User-Agent': 'any-potd/1.0 (https://github.com/artkpv/any-potd)'}
+    response = retry_request(url, headers=headers)
+
+    images = response.json()
+    if not images:
+        raise Exception("No EPIC images available")
+
+    img_data = images[0]
+    image_name = img_data['image']
+    date_str = img_data['date']  # "2026-06-05 00:31:45"
+    year, month, day = date_str.split(' ')[0].split('-')
+
+    img_url = f"https://epic.gsfc.nasa.gov/archive/natural/{year}/{month}/{day}/jpg/{image_name}.jpg"
+
+    caption = img_data.get('caption', '')
+    log_verbose(f"Date: {date_str}")
+    if caption:
+        log_verbose(f"Caption: {caption[:120]}")
+
+    download_and_save(img_url, target, headers=headers)
+
+
+def download_met_museum(target: str):
+    """Download a random public-domain highlight from the Metropolitan Museum of Art"""
+    import random
+
+    log_verbose("Fetching Metropolitan Museum of Art highlight")
+
+    headers = {'User-Agent': 'any-potd/1.0 (https://github.com/artkpv/any-potd)'}
+
+    # Search highlighted artworks with images across a variety of categories
+    terms = ['painting', 'sculpture', 'portrait', 'landscape', 'drawing',
+             'textile', 'vessel', 'figure', 'still life', 'photograph']
+    query = random.choice(terms)
+
+    search_url = "https://collectionapi.metmuseum.org/public/collection/v1/search"
+    params = {'isHighlight': 'true', 'hasImages': 'true', 'q': query}
+    data = retry_request(search_url, headers=headers, params=params).json()
+
+    object_ids = data.get('objectIDs') or []
+    if not object_ids:
+        raise Exception("No artworks found in Met Museum search")
+
+    # Retry a few times in case a random pick has no primaryImage
+    img_url = None
+    for _ in range(5):
+        object_id = random.choice(object_ids)
+        obj_url = f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{object_id}"
+        obj = retry_request(obj_url, headers=headers).json()
+        img_url = obj.get('primaryImage')
+        if img_url:
+            title = obj.get('title', 'Unknown')
+            artist = obj.get('artistDisplayName') or 'Unknown'
+            date = obj.get('objectDate', '')
+            log_verbose(f"Title: {title}")
+            log_verbose(f"Artist: {artist}" + (f", {date}" if date else ""))
+            break
+
+    if not img_url:
+        raise Exception("Could not find an artwork with an image in Met Museum collection")
+
+    download_and_save(img_url, target, headers=headers)
+
+
+def download_pexels(target: str, api_key: str):
+    """Download the latest curated photo from Pexels"""
+    log_verbose("Fetching Pexels curated photo")
+
+    if not api_key:
+        raise Exception("Pexels API key is required. Get one at https://www.pexels.com/api/")
+
+    url = "https://api.pexels.com/v1/curated"
+    headers = {'Authorization': api_key}
+    params = {'per_page': 1}
+
+    data = retry_request(url, headers=headers, params=params).json()
+
+    photos = data.get('photos', [])
+    if not photos:
+        raise Exception("No photos found in Pexels curated feed")
+
+    photo = photos[0]
+    title = photo.get('alt', 'Unknown')
+    photographer = photo.get('photographer', 'Unknown')
+    log_verbose(f"Title: {title}")
+    log_verbose(f"Photographer: {photographer}")
+
+    src = photo.get('src', {})
+    img_url = src.get('original') or src.get('large2x') or src.get('large')
+    if not img_url:
+        raise Exception("No image URL found in Pexels response")
+
+    download_and_save(img_url, target, headers=headers)
+
+
 def download_wikipedia(target: str):
     """Download Wikipedia/Wikimedia Commons Picture of the Day"""
     log_verbose("Fetching Wikipedia Picture of the Day")
@@ -370,24 +473,30 @@ Supported sources:
   bing        Bing Photo of the Day (no key needed)
   nasa        NASA Astronomy Picture of the Day (optional API key)
   earthobs    NASA Earth Observatory Image of the Day (no key needed)
+  epic        NASA EPIC full-disk Earth from 1M miles (no key needed)
   wikipedia   Wikipedia/Wikimedia Commons Picture of the Day (no key needed)
+  met         Metropolitan Museum of Art random highlight (no key needed)
   unsplash    Unsplash random photos (API key required)
   flickr      Flickr Explore interesting photos (API key required)
+  pexels      Pexels curated photos (API key required)
 
 Examples:
   any_potd bing wallpaper.jpg
   any_potd nasa apod.jpg --api-key YOUR_NASA_KEY
   any_potd earthobs earth.jpg --verbose
+  any_potd epic epic.jpg --verbose
   any_potd wikipedia wiki-potd.jpg --verbose
+  any_potd met art.jpg --verbose
   any_potd unsplash nature.jpg --unsplash-api-key YOUR_KEY --topic nature
   any_potd unsplash mountain.jpg --unsplash-api-key YOUR_KEY --query "mountain sunset"
   any_potd flickr explore.jpg --flickr-api-key YOUR_KEY
+  any_potd pexels curated.jpg --pexels-api-key YOUR_KEY
         """
     )
 
     parser.add_argument(
         'source',
-        choices=['bing', 'nasa', 'earthobs', 'wikipedia', 'unsplash', 'flickr'],
+        choices=['bing', 'nasa', 'earthobs', 'epic', 'wikipedia', 'met', 'unsplash', 'flickr', 'pexels'],
         help='Photo source'
     )
 
@@ -412,6 +521,12 @@ Examples:
         '--flickr-api-key',
         default=os.environ.get('FLICKR_API_KEY'),
         help='Flickr API key (required for flickr source). Get one at https://www.flickr.com/services/api/'
+    )
+
+    parser.add_argument(
+        '--pexels-api-key',
+        default=os.environ.get('PEXELS_API_KEY'),
+        help='Pexels API key (required for pexels source). Get one at https://www.pexels.com/api/'
     )
 
     parser.add_argument(
@@ -442,8 +557,12 @@ Examples:
             download_nasa(args.target, args.api_key)
         elif args.source == 'earthobs':
             download_earth_observatory(args.target)
+        elif args.source == 'epic':
+            download_nasa_epic(args.target)
         elif args.source == 'wikipedia':
             download_wikipedia(args.target)
+        elif args.source == 'met':
+            download_met_museum(args.target)
         elif args.source == 'unsplash':
             if not args.unsplash_api_key:
                 print("Error: --unsplash-api-key is required for Unsplash source", file=sys.stderr)
@@ -456,6 +575,12 @@ Examples:
                 print("Get a free API key at: https://www.flickr.com/services/api/", file=sys.stderr)
                 sys.exit(1)
             download_flickr(args.target, args.flickr_api_key)
+        elif args.source == 'pexels':
+            if not args.pexels_api_key:
+                print("Error: --pexels-api-key is required for Pexels source", file=sys.stderr)
+                print("Get a free API key at: https://www.pexels.com/api/", file=sys.stderr)
+                sys.exit(1)
+            download_pexels(args.target, args.pexels_api_key)
     except KeyboardInterrupt:
         print("\nCancelled by user")
         sys.exit(1)

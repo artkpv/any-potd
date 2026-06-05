@@ -30,6 +30,15 @@ if [ "$SOURCE" == "nasa" ]; then
     fi
 fi
 
+# Use Pexels API key from environment variable if source is pexels
+if [ "$SOURCE" == "pexels" ]; then
+    if [ -z "$PEXELS_API_KEY" ]; then
+        notify-send "Wallpaper Error" "PEXELS_API_KEY environment variable is not set"
+        exit 1
+    fi
+    CMD="$CMD --pexels-api-key $PEXELS_API_KEY"
+fi
+
 # Use Flickr API key from environment variable if source is flickr
 if [ "$SOURCE" == "flickr" ]; then
     if [ -z "$FLICKR_API_KEY" ]; then
